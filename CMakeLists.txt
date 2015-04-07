@@ -7,7 +7,7 @@
 
 # BUILD_SHARED_LIBS is a standard CMake variable, but we declare it here to
 # make it prominent in the GUI.
-option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)
+option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
 
 # When other libraries are using a shared version of runtime libraries,
 # Google Test also has to use one.
@@ -39,7 +39,7 @@ endif()
 # as ${gtest_SOURCE_DIR} and to the root binary directory as
 # ${gtest_BINARY_DIR}.
 # Language "C" is required for find_package(Threads).
-project(gtest CXX C)
+project(gtest)
 cmake_minimum_required(VERSION 2.6.2)
 
 if (COMMAND set_up_hermetic_build)
@@ -59,16 +59,6 @@ include_directories(
 # Where Google Test's libraries can be found.
 link_directories(${gtest_BINARY_DIR}/src)
 
-# Summary of tuple support for Microsoft Visual Studio:
-# Compiler    version(MS)  version(cmake)  Support
-# ----------  -----------  --------------  -----------------------------
-# <= VS 2010  <= 10        <= 1600         Use Google Tests's own tuple.
-# VS 2012     11           1700            std::tr1::tuple + _VARIADIC_MAX=10
-# VS 2013     12           1800            std::tr1::tuple
-if (MSVC AND MSVC_VERSION EQUAL 1700)
-  add_definitions(/D _VARIADIC_MAX=10)
-endif()
-
 ########################################################################
 #
 # Defines the gtest & gtest_main libraries.  User tests should link
@@ -80,6 +70,61 @@ endif()
 cxx_library(gtest "${cxx_strict}" src/gtest-all.cc)
 cxx_library(gtest_main "${cxx_strict}" src/gtest_main.cc)
 target_link_libraries(gtest_main gtest)
+
+# install
+set (CMAKE_INSTALL_PREFIX /usr/local)
+INSTALL(TARGETS gtest
+		RUNTIME 
+		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+					GROUP_READ GROUP_EXECUTE
+					WORLD_READ WORLD_EXECUTE
+		DESTINATION lib
+					
+		LIBRARY 
+		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+					GROUP_READ GROUP_EXECUTE
+					WORLD_READ WORLD_EXECUTE
+		DESTINATION lib
+				
+		ARCHIVE 
+		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+					GROUP_READ GROUP_EXECUTE
+					WORLD_READ WORLD_EXECUTE
+		DESTINATION lib
+		)
+
+INSTALL(TARGETS gtest_main
+		RUNTIME 
+		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+					GROUP_READ GROUP_EXECUTE
+					WORLD_READ WORLD_EXECUTE
+		DESTINATION lib
+					
+		LIBRARY 
+		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+					GROUP_READ GROUP_EXECUTE
+					WORLD_READ WORLD_EXECUTE
+		DESTINATION lib
+				
+		ARCHIVE 
+		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+					GROUP_READ GROUP_EXECUTE
+					WORLD_READ WORLD_EXECUTE
+		DESTINATION lib
+		)
+
+INSTALL(DIRECTORY include/
+	DESTINATION include/
+	FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+			GROUP_READ GROUP_EXECUTE
+			WORLD_READ WORLD_EXECUTE
+	DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE 
+			GROUP_READ GROUP_EXECUTE
+			WORLD_READ WORLD_EXECUTE
+	PATTERN "CVS" EXCLUDE
+	PATTERN "cvs" EXCLUDE
+	PATTERN "CMakeLists.txt" EXCLUDE
+	)
 
 ########################################################################
 #
@@ -181,10 +226,12 @@ if (gtest_build_tests)
                         PROPERTIES
                         COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 
-  if (NOT MSVC OR MSVC_VERSION LESS 1600)  # 1600 is Visual Studio 2010.
-    # Visual Studio 2010, 2012, and 2013 define symbols in std::tr1 that
-    # conflict with our own definitions. Therefore using our own tuple does not
-    # work on those compilers.
+  if (NOT MSVC OR NOT MSVC_VERSION EQUAL 1600)
+    # The C++ Standard specifies tuple_element<int, class>.
+    # Yet MSVC 10's <utility> declares tuple_element<size_t, class>.
+    # That declaration conflicts with our own standard-conforming
+    # tuple implementation.  Therefore using our own tuple with
+    # MSVC 10 doesn't compile.
     cxx_library(gtest_main_use_own_tuple "${cxx_use_own_tuple}"
       src/gtest-all.cc src/gtest_main.cc)
 
@@ -202,8 +249,8 @@ if (gtest_build_tests)
   cxx_executable(gtest_break_on_failure_unittest_ test gtest)
   py_test(gtest_break_on_failure_unittest)
 
-  # Visual Studio .NET 2003 does not support STL with exceptions disabled.
-  if (NOT MSVC OR MSVC_VERSION GREATER 1310)  # 1310 is Visual Studio .NET 2003
+  # MSVC 7.1 does not support STL with exceptions disabled.
+  if (NOT MSVC OR MSVC_VERSION GREATER 1310)
     cxx_executable_with_flags(
       gtest_catch_exceptions_no_ex_test_
       "${cxx_no_exception}"
